@@ -131,20 +131,46 @@ export default function BoulderForm({
     setUploading(true);
 
     try {
-      return new Promise<string | null>((resolve, reject) => {
-        const reader = new FileReader();
+      const isHeic =
+        imageFile.type === "image/heic" ||
+        imageFile.name.toLowerCase().endsWith(".heic");
 
+      // For HEIC files, you may want to use a client-side conversion
+      // library like heic2any
+      let fileToProcess = imageFile;
+      let imageData: string;
+
+      if (isHeic) {
+        try {
+          // This assumes you've installed heic2any
+          // npm install heic2any
+          const heic2any = (await import("heic2any")).default;
+          const jpegBlob = await heic2any({
+            blob: imageFile,
+            toType: "image/jpeg",
+            quality: 1,
+          });
+
+          fileToProcess = new File(
+            [jpegBlob instanceof Blob ? jpegBlob : jpegBlob[0]],
+            "converted.jpg",
+            { type: "image/jpeg" }
+          );
+        } catch (error) {
+          console.error("Error converting HEIC:", error);
+          throw new Error(
+            "Failed to convert HEIC image. Please try a different format."
+          );
+        }
+      }
+
+      // Read the file as data URL
+      const reader = new FileReader();
+      return new Promise<string | null>((resolve, reject) => {
         reader.onloadend = async () => {
           try {
             // Get the image data as base64
-            const imageData = reader.result as string;
-
-            // Get the image format (for HEIC handling)
-            const imageFormat =
-              imageFile.type ||
-              (imageFile.name.toLowerCase().endsWith(".heic")
-                ? "image/heic"
-                : "image/jpeg");
+            imageData = reader.result as string;
 
             // Send to API endpoint
             const response = await fetch("/api/boulders", {
@@ -155,7 +181,7 @@ export default function BoulderForm({
               body: JSON.stringify({
                 imageData,
                 routeId: formData.id,
-                imageFormat,
+                imageFormat: fileToProcess.type,
               }),
             });
 
@@ -175,8 +201,8 @@ export default function BoulderForm({
           reject(new Error("Error reading image file"));
         };
 
-        // Read the image file as data URL
-        reader.readAsDataURL(imageFile);
+        // Read the (potentially converted) image file as data URL
+        reader.readAsDataURL(fileToProcess);
       });
     } catch (error) {
       console.error("Error uploading image:", error);
