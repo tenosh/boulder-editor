@@ -1,12 +1,9 @@
-import { Suspense } from "react";
-import RoutesContent from "@/app/components/RoutesContent";
+import Boulders from "@/app/components/Boulders";
 
 export default function Home() {
   return (
-    <div className="flex flex-col p-5 mx-auto">
-      <Suspense fallback={<div>Loading...</div>}>
-        <RoutesContent />
-      </Suspense>
-    </div>
+    <main className="container mx-auto px-4 py-8">
+      <Boulders />
+    </main>
   );
 }
