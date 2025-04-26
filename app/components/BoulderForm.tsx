@@ -3,8 +3,8 @@ import Image from "next/image";
 import { Boulder } from "@/app/types/boulder";
 
 interface BoulderFormProps {
-  boulder: Boulder;
-  onSubmit: (updatedBoulder: Boulder) => void;
+  boulder?: Boulder;
+  onSubmit: (updatedBoulder: Boulder | Omit<Boulder, "id">) => void;
   onCancel: () => void;
 }
 
@@ -48,24 +48,44 @@ const STYLE_OPTIONS = [
   { value: "Slopey holds", label: "Agarres de Sloper" },
 ];
 
+// Default empty boulder data for new creation
+const DEFAULT_BOULDER: Omit<Boulder, "id"> = {
+  name: "",
+  description: null,
+  grade: null,
+  sector_id: "5f08920b-ff8b-45ed-b3f8-a4976bdd71b7", // Fixed sector ID
+  quality: null,
+  type: "boulder",
+  image: null,
+  image_line: null,
+  latitude: null,
+  longitude: null,
+  height: null,
+  style: [],
+  top: null,
+};
+
 export default function BoulderForm({
   boulder,
   onSubmit,
   onCancel,
 }: BoulderFormProps) {
+  // Check if we're creating a new boulder
+  const isCreating = !boulder;
+
   // Parse the style if it's a string
-  const initialStyle = boulder.style
+  const initialStyle = boulder?.style
     ? typeof boulder.style === "string"
       ? JSON.parse(boulder.style)
       : boulder.style
     : [];
 
   const [formData, setFormData] = useState({
-    ...boulder,
+    ...(boulder || DEFAULT_BOULDER),
     style: initialStyle,
   });
   const [imagePreview, setImagePreview] = useState<string | null>(
-    boulder.image
+    boulder?.image || null
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -180,7 +200,7 @@ export default function BoulderForm({
               },
               body: JSON.stringify({
                 imageData,
-                routeId: formData.id,
+                routeId: "id" in formData ? formData.id : "new",
                 imageFormat: fileToProcess.type,
               }),
             });
@@ -231,13 +251,15 @@ export default function BoulderForm({
       style: JSON.stringify(formData.style),
     };
 
-    onSubmit(updatedBoulder as Boulder);
+    onSubmit(updatedBoulder);
   };
 
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden">
       <div className="p-4">
-        <h2 className="text-xl font-bold mb-4 text-gray-600">Editar Bloque</h2>
+        <h2 className="text-xl font-bold mb-4 text-black">
+          {isCreating ? "Crear Nuevo Bloque" : "Editar Bloque"}
+        </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name field */}
@@ -258,6 +280,13 @@ export default function BoulderForm({
               required
             />
           </div>
+
+          {/* Hidden sector_id field */}
+          <input
+            type="hidden"
+            name="sector_id"
+            value={formData.sector_id || "5f08920b-ff8b-45ed-b3f8-a4976bdd71b7"}
+          />
 
           {/* Description field */}
           <div>
@@ -301,14 +330,16 @@ export default function BoulderForm({
               htmlFor="type"
               className="block text-sm font-medium text-gray-600"
             >
-              Tipo (Solo lectura)
+              Tipo (Boulder)
             </label>
             <input
               type="text"
               id="type"
-              value={formData.type || ""}
+              name="type"
+              value={formData.type || "boulder"}
+              onChange={handleChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-600"
-              disabled
+              readOnly
             />
           </div>
 
@@ -509,7 +540,7 @@ export default function BoulderForm({
               />
             </div>
 
-            {boulder.image_line && (
+            {boulder?.image_line && (
               <div className="mt-2">
                 <p className="text-sm text-gray-600">
                   Imagen con línea disponible. Esta no se puede actualizar desde
@@ -519,20 +550,24 @@ export default function BoulderForm({
             )}
           </div>
 
-          <div className="flex space-x-2 pt-4">
+          <div className="flex justify-end space-x-2">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="px-4 py-2 text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
             >
               Cancelar
             </button>
             <button
               type="submit"
+              className="px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
               disabled={uploading}
-              className="flex-1 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {uploading ? "Guardando..." : "Guardar"}
+              {uploading
+                ? "Guardando..."
+                : isCreating
+                ? "Crear"
+                : "Guardar Cambios"}
             </button>
           </div>
         </form>

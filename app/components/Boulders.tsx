@@ -10,6 +10,7 @@ export default function Boulders() {
   const [boulders, setBoulders] = useState<Boulder[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingBoulderId, setEditingBoulderId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     fetchBoulders();
@@ -34,20 +35,47 @@ export default function Boulders() {
 
   function handleEdit(boulderId: string) {
     setEditingBoulderId(boulderId);
+    setIsCreating(false);
   }
 
   function handleCancelEdit() {
     setEditingBoulderId(null);
+    setIsCreating(false);
   }
 
-  async function handleUpdate(updatedBoulder: Boulder) {
+  function handleCreate() {
+    setEditingBoulderId(null);
+    setIsCreating(true);
+  }
+
+  async function handleCreateSubmit(newBoulder: Omit<Boulder, "id">) {
     try {
-      const { error } = await supabase
-        .from("boulder")
-        .update(updatedBoulder)
-        .eq("id", updatedBoulder.id);
+      const { error } = await supabase.from("boulder").insert([newBoulder]);
 
       if (error) throw error;
+      fetchBoulders();
+      setIsCreating(false);
+    } catch (error) {
+      console.error("Error creating boulder:", error);
+    }
+  }
+
+  async function handleUpdate(updatedBoulder: Boulder | Omit<Boulder, "id">) {
+    try {
+      // Check if updatedBoulder has an id (meaning it's a Boulder, not a new one)
+      if ("id" in updatedBoulder) {
+        const { error } = await supabase
+          .from("boulder")
+          .update(updatedBoulder)
+          .eq("id", updatedBoulder.id);
+
+        if (error) throw error;
+      } else {
+        // Should never happen as this function is for updates, not creations
+        console.error("Attempted to update a boulder without an ID");
+        return;
+      }
+
       fetchBoulders();
       setEditingBoulderId(null);
     } catch (error) {
@@ -61,9 +89,29 @@ export default function Boulders() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold mb-4">Bloques de Escalada</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Bloques de Escalada</h1>
+        <button
+          onClick={handleCreate}
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+        >
+          Nuevo Bloque
+        </button>
+      </div>
 
-      {boulders.length === 0 ? (
+      {isCreating && (
+        <div className="mb-8 p-4 border rounded bg-gray-50">
+          <h2 className="text-xl font-semibold mb-4 text-black">
+            Crear Nuevo Bloque
+          </h2>
+          <BoulderForm
+            onSubmit={handleCreateSubmit}
+            onCancel={handleCancelEdit}
+          />
+        </div>
+      )}
+
+      {boulders.length === 0 && !isCreating ? (
         <p>No se encontraron bloques.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
